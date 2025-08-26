@@ -12,3 +12,4 @@ redis
 python-dotenv
 databases
 python-multipart
+pydantic[email]
