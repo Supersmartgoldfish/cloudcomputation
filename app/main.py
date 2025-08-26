@@ -100,3 +100,30 @@ def end_session(job_id: int, db: Session = Depends(auth.get_db)):
         host.available = True
     db.commit()
     return {"status":"ended", "earned": payout}
+
+@app.get("/hosts/{host_id}/next-job")
+def assign_job(host_id: str, db: Session = Depends(auth.get_db)):
+    job = db.query(models.Job).filter(models.Job.status == "queued").first()
+    if not job:
+        return {"job": None}
+    job.status = "running"
+    job.host_id = host_id
+    job.started_at = datetime.utcnow()
+    db.commit()
+    return {
+        "id": job.id,
+        "docker_image": job.docker_image,
+        "command": job.command,
+        "payload": job.payload
+    }
+
+@app.post("/hosts/{host_id}/jobs/{job_id}/done")
+def job_done(host_id: str, job_id: int, result: dict, db: Session = Depends(auth.get_db)):
+    job = db.query(models.Job).get(job_id)
+    if not job or job.host_id != host_id:
+        raise HTTPException(404, "job not found for this host")
+    job.status = "done"
+    job.finished_at = datetime.utcnow()
+    job.result = result
+    db.commit()
+    return {"status": "ok"}
